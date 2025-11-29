@@ -1,0 +1,34 @@
+{
+  "name": "fastmile-5g-tools",
+  "version": "2.0.0",
+  "description": "CLI tool to monitor and manage FastMile 5G gateway - status monitoring, authentication, and interface control",
+  "main": "main.js",
+  "bin": {
+    "fastmile": "./main.js"
+  },
+  "scripts": {
+    "start": "node main.js",
+    "status": "node main.js status",
+    "login": "node main.js login",
+    "reconnect": "node main.js reconnect",
+    "restart": "node main.js restart",
+    "config": "node main.js config",
+    "test": "node main.js --help"
+  },
+  "keywords": [
+    "5G",
+    "fastmile",
+    "gateway",
+    "monitoring",
+    "cli",
+    "nokia",
+    "authentication",
+    "network",
+    "reconnect"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=12.0.0"
+  }
+}
