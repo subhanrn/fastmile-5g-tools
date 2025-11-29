@@ -7,7 +7,7 @@ const path = require('path');
 const { argv } = require('process');
 
 // CLI Configuration
-const DEFAULT_HOSTNAME = '192.168.1.1';
+const DEFAULT_HOSTNAME = '192.168.8.1';
 const DEFAULT_PATH = '/prelogin_status_web_app.cgi';
 const CONFIG_FILE = path.join(__dirname, 'config.json');
 
@@ -50,7 +50,7 @@ function saveConfig(config) {
 
 function mergeConfigWithArgs(args) {
     const config = loadConfig();
-    
+
     // Only use config values if not provided via command line
     if (!args.username && config.username) {
         args.username = config.username;
@@ -67,7 +67,7 @@ function mergeConfigWithArgs(args) {
     if (args.apn === 'internet' && config.apn) {
         args.apn = config.apn;
     }
-    
+
     return args;
 }
 
@@ -149,7 +149,7 @@ function performLogin(hostname, username, password, nonceResponse, saltResponse)
         const nonceUrl = base64url_escape(nonceResponse.nonce);
         const userhash = sha256url(username, nonceResponse.nonce);
         const randomKeyHash = sha256url(nonceResponse.randomKey, nonceResponse.nonce);
-        
+
         let hashedPassword = nonceResponse.iterations >= 1
             ? sha256String(saltResponse.alati + password)
             : saltResponse.alati + password;
@@ -159,11 +159,11 @@ function performLogin(hostname, username, password, nonceResponse, saltResponse)
         }
 
         const response = sha256url(sha256(username, hashedPassword.toLowerCase()), nonceResponse.nonce);
-        
+
         // Generate random encryption key and IV
         const enckey = crypto.randomBytes(16).toString('base64');
         const enciv = crypto.randomBytes(16).toString('base64');
-        
+
         let postBody = `userhash=${userhash}&RandomKeyhash=${randomKeyHash}&response=${response}&nonce=${nonceUrl}`;
         postBody += `&enckey=${base64url_escape(enckey)}&enciv=${base64url_escape(enciv)}`;
 
@@ -244,7 +244,7 @@ function rebootGateway(hostname, loginResponse) {
             function: "Reboot",
             paralist: []
         });
-        
+
         const options = {
             hostname,
             path: '/reboot_web_app.cgi',
@@ -287,7 +287,7 @@ function parseArgs() {
 
     for (let i = 2; i < argv.length; i++) {
         const arg = argv[i];
-        
+
         if (arg === '-h' || arg === '--help') {
             args.help = true;
         } else if (arg === 'status') {
@@ -395,21 +395,48 @@ ${colors.bright}EXAMPLES:${colors.reset}
 function formatTable(json, filter) {
     let output = '';
 
-    // WAN IP Status
+    // Connection Status
     if (!filter || filter === 'all' || filter === 'wan') {
+        output += `${colors.bright}${colors.cyan}╔═══════════════════════════════════════╗${colors.reset}\n`;
+        output += `${colors.bright}${colors.cyan}║      Connection Status                ║${colors.reset}\n`;
+        output += `${colors.bright}${colors.cyan}╚═══════════════════════════════════════╝${colors.reset}\n`;
+
+        if (json.connection_status && json.connection_status.length > 0) {
+            const connStatus = json.connection_status[0].ConnectionStatus;
+            const statusText = connStatus === 1 ? `${colors.green}Connected${colors.reset}` : `${colors.red}Disconnected${colors.reset}`;
+            output += `  ${colors.yellow}Status:${colors.reset}       ${statusText}\n`;
+        }
+
+        // Active APN
+        if (json.apn_cfg && json.apn_cfg.length > 0) {
+            const apn = json.apn_cfg[0];
+            output += `  ${colors.yellow}APN:${colors.reset}          ${apn.APN}\n`;
+            output += `  ${colors.yellow}IPv4:${colors.reset}         ${apn.X_ALU_COM_IPAddressV4 || 'N/A'}\n`;
+            output += `  ${colors.yellow}IPv6:${colors.reset}         ${apn.X_ALU_COM_IPAddressV6 || 'N/A'}\n`;
+        }
+
+        // Cellular Data Stats
+        if (json.cellular_stats && json.cellular_stats.length > 0) {
+            const stats = json.cellular_stats[0];
+            const rxMB = (stats.BytesReceived / (1024 * 1024)).toFixed(2);
+            const txMB = (stats.BytesSent / (1024 * 1024)).toFixed(2);
+            output += `  ${colors.yellow}Data RX:${colors.reset}      ${rxMB} MB\n`;
+            output += `  ${colors.yellow}Data TX:${colors.reset}      ${txMB} MB\n`;
+        }
+        output += '\n';
+    }
+
+    // WAN IP Status (fallback for old API)
+    if (json.wan_ip_status && json.wan_ip_status.length > 0 && (!filter || filter === 'all' || filter === 'wan')) {
         output += `${colors.bright}${colors.cyan}╔═══════════════════════════════════════╗${colors.reset}\n`;
         output += `${colors.bright}${colors.cyan}║         WAN IP Status                 ║${colors.reset}\n`;
         output += `${colors.bright}${colors.cyan}╚═══════════════════════════════════════╝${colors.reset}\n`;
-        
-        if (json.wan_ip_status && json.wan_ip_status.length > 0) {
-            const wan = json.wan_ip_status[0];
-            const status = wan.gwwanup === 1 ? `${colors.green}UP${colors.reset}` : `${colors.red}DOWN${colors.reset}`;
-            output += `  ${colors.yellow}Status:${colors.reset}       ${status}\n`;
-            output += `  ${colors.yellow}IPv4:${colors.reset}         ${wan.ExternalIPAddress || 'N/A'}\n`;
-            output += `  ${colors.yellow}IPv6:${colors.reset}         ${wan.ExternalIPv6Address || 'N/A'}\n`;
-        } else {
-            output += `  ${colors.red}No WAN IP status found.${colors.reset}\n`;
-        }
+
+        const wan = json.wan_ip_status[0];
+        const status = wan.gwwanup === 1 ? `${colors.green}UP${colors.reset}` : `${colors.red}DOWN${colors.reset}`;
+        output += `  ${colors.yellow}Status:${colors.reset}       ${status}\n`;
+        output += `  ${colors.yellow}IPv4:${colors.reset}         ${wan.ExternalIPAddress || 'N/A'}\n`;
+        output += `  ${colors.yellow}IPv6:${colors.reset}         ${wan.ExternalIPv6Address || 'N/A'}\n`;
         output += '\n';
     }
 
@@ -418,14 +445,21 @@ function formatTable(json, filter) {
         output += `${colors.bright}${colors.cyan}╔═══════════════════════════════════════╗${colors.reset}\n`;
         output += `${colors.bright}${colors.cyan}║         5G Cell Stats                 ║${colors.reset}\n`;
         output += `${colors.bright}${colors.cyan}╚═══════════════════════════════════════╝${colors.reset}\n`;
-        
+
         if (json.cell_5G_stats_cfg && json.cell_5G_stats_cfg.length > 0) {
             const stat = json.cell_5G_stats_cfg[0].stat;
-            const signalLevel = getSignalQuality(stat.SignalStrengthLevel);
-            output += `  ${colors.yellow}RSRP:${colors.reset}         ${stat.RSRPCurrent} dBm\n`;
-            output += `  ${colors.yellow}RSRQ:${colors.reset}         ${stat.RSRQCurrent} dB\n`;
-            output += `  ${colors.yellow}SNR:${colors.reset}          ${stat.SNRCurrent} dB\n`;
-            output += `  ${colors.yellow}Signal:${colors.reset}       ${signalLevel} (Level ${stat.SignalStrengthLevel})\n`;
+            // Check if 5G is actually active (not default values)
+            if (stat.RSRPCurrent !== -32768 && stat.SignalStrengthLevel > 0) {
+                const signalLevel = getSignalQuality(stat.SignalStrengthLevel);
+                output += `  ${colors.yellow}RSRP:${colors.reset}         ${stat.RSRPCurrent} dBm\n`;
+                output += `  ${colors.yellow}RSRQ:${colors.reset}         ${stat.RSRQCurrent} dB\n`;
+                output += `  ${colors.yellow}SNR:${colors.reset}          ${stat.SNRCurrent} dB\n`;
+                output += `  ${colors.yellow}Signal:${colors.reset}       ${signalLevel} (Level ${stat.SignalStrengthLevel})\n`;
+                if (stat.Band) output += `  ${colors.yellow}Band:${colors.reset}         ${stat.Band}\n`;
+                if (stat.PhysicalCellID) output += `  ${colors.yellow}Cell ID:${colors.reset}      ${stat.PhysicalCellID}\n`;
+            } else {
+                output += `  ${colors.red}No 5G connection available.${colors.reset}\n`;
+            }
         } else {
             output += `  ${colors.red}No 5G stats available.${colors.reset}\n`;
         }
@@ -437,7 +471,7 @@ function formatTable(json, filter) {
         output += `${colors.bright}${colors.cyan}╔═══════════════════════════════════════╗${colors.reset}\n`;
         output += `${colors.bright}${colors.cyan}║         LTE Cell Stats                ║${colors.reset}\n`;
         output += `${colors.bright}${colors.cyan}╚═══════════════════════════════════════╝${colors.reset}\n`;
-        
+
         if (json.cell_LTE_stats_cfg && json.cell_LTE_stats_cfg.length > 0) {
             const stat = json.cell_LTE_stats_cfg[0].stat;
             const signalLevel = getSignalQuality(stat.SignalStrengthLevel);
@@ -446,6 +480,9 @@ function formatTable(json, filter) {
             output += `  ${colors.yellow}RSSI:${colors.reset}         ${stat.RSSICurrent} dBm\n`;
             output += `  ${colors.yellow}SNR:${colors.reset}          ${stat.SNRCurrent} dB\n`;
             output += `  ${colors.yellow}Signal:${colors.reset}       ${signalLevel} (Level ${stat.SignalStrengthLevel})\n`;
+            if (stat.Band) output += `  ${colors.yellow}Band:${colors.reset}         ${stat.Band}\n`;
+            if (stat.PhysicalCellID) output += `  ${colors.yellow}Cell ID:${colors.reset}      ${stat.PhysicalCellID}\n`;
+            if (stat.Bandwidth) output += `  ${colors.yellow}Bandwidth:${colors.reset}    ${stat.Bandwidth}\n`;
         } else {
             output += `  ${colors.red}No LTE stats available.${colors.reset}\n`;
         }
@@ -458,6 +495,25 @@ function formatCompact(json, filter) {
     let output = '';
 
     if (!filter || filter === 'all' || filter === 'wan') {
+        // New API format
+        if (json.connection_status && json.connection_status.length > 0) {
+            const connStatus = json.connection_status[0].ConnectionStatus === 1 ? 'Connected' : 'Disconnected';
+            output += `Status: ${connStatus} | `;
+        }
+
+        if (json.apn_cfg && json.apn_cfg.length > 0) {
+            const apn = json.apn_cfg[0];
+            output += `APN: ${apn.APN} | IPv4: ${apn.X_ALU_COM_IPAddressV4 || 'N/A'} | `;
+        }
+
+        if (json.cellular_stats && json.cellular_stats.length > 0) {
+            const stats = json.cellular_stats[0];
+            const rxMB = (stats.BytesReceived / (1024 * 1024)).toFixed(1);
+            const txMB = (stats.BytesSent / (1024 * 1024)).toFixed(1);
+            output += `RX: ${rxMB}MB TX: ${txMB}MB | `;
+        }
+
+        // Old API format (fallback)
         if (json.wan_ip_status && json.wan_ip_status.length > 0) {
             const wan = json.wan_ip_status[0];
             output += `WAN: ${wan.gwwanup === 1 ? 'UP' : 'DOWN'} | IPv4: ${wan.ExternalIPAddress || 'N/A'} | `;
@@ -467,7 +523,9 @@ function formatCompact(json, filter) {
     if (!filter || filter === 'all' || filter === '5g') {
         if (json.cell_5G_stats_cfg && json.cell_5G_stats_cfg.length > 0) {
             const stat = json.cell_5G_stats_cfg[0].stat;
-            output += `5G: RSRP=${stat.RSRPCurrent} RSRQ=${stat.RSRQCurrent} SNR=${stat.SNRCurrent} | `;
+            if (stat.RSRPCurrent !== -32768 && stat.SignalStrengthLevel > 0) {
+                output += `5G: RSRP=${stat.RSRPCurrent} RSRQ=${stat.RSRQCurrent} SNR=${stat.SNRCurrent} | `;
+            }
         }
     }
 
@@ -508,14 +566,19 @@ function getSignalQuality(level) {
     return `${colors.red}No Signal${colors.reset}`;
 }
 
-function fetchData(hostname, path) {
+function fetchData(hostname, path, cookie = null) {
     return new Promise((resolve, reject) => {
         const options = {
             hostname,
             path,
             method: 'GET',
             timeout: 5000,
+            headers: {}
         };
+
+        if (cookie) {
+            options.headers['Cookie'] = cookie;
+        }
 
         const req = http.request(options, res => {
             let data = '';
@@ -547,10 +610,22 @@ function fetchData(hostname, path) {
     });
 }
 
-async function displayData(args) {
+function fetchDetailedStatus(hostname, cookie = null) {
+    return fetchData(hostname, '/status_get_web_app.cgi', cookie);
+}
+
+async function displayData(args, cookie = null) {
     try {
-        const json = await fetchData(args.hostname, args.path);
-        
+        let json;
+
+        // Try detailed status API first, fall back to old API if it fails
+        try {
+            json = await fetchDetailedStatus(args.hostname, cookie);
+        } catch (detailedError) {
+            // Fall back to old API
+            json = await fetchData(args.hostname, args.path, cookie);
+        }
+
         let output;
         if (args.format === 'json') {
             output = formatJson(json, args.filter);
@@ -583,27 +658,27 @@ async function handleLogin(args) {
 
     try {
         console.log(`${colors.cyan}Connecting to ${args.hostname}...${colors.reset}`);
-        
+
         // Step 1: Get nonce
         console.log('Getting nonce...');
         const nonceData = await getNonce(args.hostname);
         const nonceResponse = JSON.parse(nonceData);
-        
+
         // Step 2: Get salt
         console.log('Getting salt...');
         const saltData = await getSalt(args.hostname, args.username, nonceResponse);
         const saltResponse = JSON.parse(saltData);
-        
+
         // Step 3: Login
         console.log('Authenticating...');
         const loginData = await performLogin(args.hostname, args.username, args.password, nonceResponse, saltResponse);
         const loginResponse = JSON.parse(loginData);
-        
+
         if (loginResponse.sid) {
             console.log(`${colors.green}✓ Login successful!${colors.reset}`);
             console.log(`${colors.yellow}Session ID:${colors.reset} ${loginResponse.sid}`);
             console.log(`${colors.yellow}Token:${colors.reset} ${loginResponse.token}`);
-            
+
             // Save config if requested
             if (args.saveConfig) {
                 const config = {
@@ -619,6 +694,11 @@ async function handleLogin(args) {
                     console.log(`${colors.red}✗ Failed to save credentials${colors.reset}`);
                 }
             }
+
+            // Display status with authenticated session
+            console.log(`\n${colors.cyan}Fetching gateway status...${colors.reset}\n`);
+            const cookie = `sid=${loginResponse.sid}`;
+            await displayData(args, cookie);
         } else {
             console.error(`${colors.red}✗ Login failed${colors.reset}`);
             console.log(loginData);
@@ -631,14 +711,14 @@ async function handleLogin(args) {
 
 function handleConfig() {
     const config = loadConfig();
-    
+
     if (Object.keys(config).length === 0) {
         console.log(`${colors.yellow}No configuration file found.${colors.reset}`);
         console.log(`${colors.cyan}To save credentials, use:${colors.reset}`);
         console.log(`  node main.js login -u <username> -p <password> --save-config`);
         return;
     }
-    
+
     console.log(`${colors.bright}${colors.cyan}Saved Configuration (${CONFIG_FILE}):${colors.reset}\n`);
     console.log(`${colors.yellow}Username:${colors.reset} ${config.username || 'Not set'}`);
     console.log(`${colors.yellow}Password:${colors.reset} ${config.password ? '********' : 'Not set'}`);
@@ -658,42 +738,47 @@ async function handleReconnect(args) {
 
     try {
         console.log(`${colors.cyan}Starting reconnection process...${colors.reset}\n`);
-        
+
         // Login
         console.log('Step 1: Authenticating...');
         const nonceData = await getNonce(args.hostname);
         const nonceResponse = JSON.parse(nonceData);
-        
+
         const saltData = await getSalt(args.hostname, args.username, nonceResponse);
         const saltResponse = JSON.parse(saltData);
-        
+
         const loginData = await performLogin(args.hostname, args.username, args.password, nonceResponse, saltResponse);
         const loginResponse = JSON.parse(loginData);
-        
+
         if (!loginResponse.sid) {
             throw new Error('Authentication failed');
         }
         console.log(`${colors.green}✓ Authenticated${colors.reset}\n`);
-        
+
         // Bring interface down
         console.log('Step 2: Bringing interface down...');
         await modifyAPN(args.hostname, loginResponse, false, args.apn);
         console.log(`${colors.green}✓ Interface down${colors.reset}\n`);
-        
+
         // Wait
         console.log(`Step 3: Waiting ${args.waitTime} seconds...`);
         await new Promise(resolve => setTimeout(resolve, args.waitTime * 1000));
         console.log(`${colors.green}✓ Wait complete${colors.reset}\n`);
-        
+
         // Bring interface up
         console.log('Step 4: Bringing interface up...');
         const upResponse = await modifyAPN(args.hostname, loginResponse, true, args.apn);
         console.log(`${colors.green}✓ Interface up${colors.reset}\n`);
-        
-        console.log(`${colors.bright}${colors.green}Reconnection successful!${colors.reset}`);
-        
+
+        console.log(`${colors.bright}${colors.green}Reconnection successful!${colors.reset}\n`);
+
+        // Display status with authenticated session
+        console.log(`${colors.cyan}Current gateway status:${colors.reset}\n`);
+        const cookie = `sid=${loginResponse.sid}`;
+        await displayData(args, cookie);
+
         if (args.format === 'json') {
-            console.log('\nResponse:', upResponse);
+            console.log('\nReconnect Response:', upResponse);
         }
     } catch (error) {
         console.error(`${colors.red}Reconnect error: ${error.message}${colors.reset}`);
@@ -711,28 +796,28 @@ async function handleRestart(args) {
 
     try {
         console.log(`${colors.cyan}Starting gateway restart...${colors.reset}\n`);
-        
+
         // Login
         console.log('Step 1: Authenticating...');
         const nonceData = await getNonce(args.hostname);
         const nonceResponse = JSON.parse(nonceData);
-        
+
         const saltData = await getSalt(args.hostname, args.username, nonceResponse);
         const saltResponse = JSON.parse(saltData);
-        
+
         const loginData = await performLogin(args.hostname, args.username, args.password, nonceResponse, saltResponse);
         const loginResponse = JSON.parse(loginData);
-        
+
         if (!loginResponse.sid) {
             throw new Error('Authentication failed');
         }
         console.log(`${colors.green}✓ Authenticated${colors.reset}\n`);
-        
+
         // Reboot
         console.log('Step 2: Sending reboot command...');
         await rebootGateway(args.hostname, loginResponse);
         console.log(`${colors.green}✓ Reboot command sent${colors.reset}\n`);
-        
+
         console.log(`${colors.bright}${colors.yellow}Gateway is rebooting...${colors.reset}`);
         console.log(`${colors.cyan}This may take 1-2 minutes. The gateway will be unavailable during this time.${colors.reset}`);
     } catch (error) {
@@ -758,33 +843,54 @@ async function main() {
         case 'config':
             handleConfig();
             break;
-            
+
         case 'login':
             await handleLogin(args);
             break;
-            
+
         case 'reconnect':
             await handleReconnect(args);
             break;
-            
+
         case 'restart':
             await handleRestart(args);
             break;
-            
+
         case 'status':
         default:
+            // Try to authenticate if credentials are available
+            let cookie = null;
+            if (args.username && args.password) {
+                try {
+                    const nonceData = await getNonce(args.hostname);
+                    const nonceResponse = JSON.parse(nonceData);
+
+                    const saltData = await getSalt(args.hostname, args.username, nonceResponse);
+                    const saltResponse = JSON.parse(saltData);
+
+                    const loginData = await performLogin(args.hostname, args.username, args.password, nonceResponse, saltResponse);
+                    const loginResponse = JSON.parse(loginData);
+
+                    if (loginResponse.sid) {
+                        cookie = `sid=${loginResponse.sid}`;
+                    }
+                } catch (error) {
+                    // Silently fall back to unauthenticated request
+                }
+            }
+
             if (args.watch) {
                 console.log(`${colors.bright}${colors.cyan}Starting watch mode... (Press Ctrl+C to exit)${colors.reset}\n`);
-                
+
                 // Initial display
-                await displayData(args);
-                
+                await displayData(args, cookie);
+
                 // Set up interval
                 setInterval(async () => {
-                    await displayData(args);
+                    await displayData(args, cookie);
                 }, args.interval);
             } else {
-                await displayData(args);
+                await displayData(args, cookie);
             }
             break;
     }
