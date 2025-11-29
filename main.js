@@ -7,7 +7,7 @@ const path = require('path');
 const { argv } = require('process');
 
 // CLI Configuration
-const DEFAULT_HOSTNAME = '192.168.8.1';
+const DEFAULT_HOSTNAME = '192.168.1.1';
 const DEFAULT_PATH = '/prelogin_status_web_app.cgi';
 const CONFIG_FILE = path.join(__dirname, 'config.json');
 
@@ -61,7 +61,7 @@ function mergeConfigWithArgs(args) {
     if (args.hostname === DEFAULT_HOSTNAME && config.hostname) {
         args.hostname = config.hostname;
     }
-    if (args.waitTime === 10 && config.waitTime) {
+    if (args.waitTime === 1 && config.waitTime) {
         args.waitTime = config.waitTime;
     }
     if (args.apn === 'internet' && config.apn) {
@@ -279,7 +279,7 @@ function parseArgs() {
         help: false,
         username: '',
         password: '',
-        waitTime: 10,
+        waitTime: 1,
         apn: 'internet',
         saveConfig: false,
         showConfig: false,
@@ -362,7 +362,7 @@ ${colors.bright}OPTIONS:${colors.reset}
     ${colors.green}-p, --password <pass>${colors.reset}   Password for authentication
     ${colors.green}-s, --save-config${colors.reset}       Save credentials to config.json
     ${colors.green}--apn <name>${colors.reset}            Access Point Name (default: internet)
-    ${colors.green}--wait <seconds>${colors.reset}        Wait time for reconnect (default: 10)
+    ${colors.green}--wait <seconds>${colors.reset}        Wait time for reconnect (default: 1)
     ${colors.green}-f, --format <type>${colors.reset}     Output format: table, json, compact (default: table)
     ${colors.green}--filter <section>${colors.reset}      Filter output: wan, 5g, lte, all (default: all)
     ${colors.green}-w, --watch${colors.reset}             Watch mode - continuously update
@@ -643,7 +643,7 @@ function handleConfig() {
     console.log(`${colors.yellow}Username:${colors.reset} ${config.username || 'Not set'}`);
     console.log(`${colors.yellow}Password:${colors.reset} ${config.password ? '********' : 'Not set'}`);
     console.log(`${colors.yellow}Hostname:${colors.reset} ${config.hostname || 'Not set'}`);
-    console.log(`${colors.yellow}Wait Time:${colors.reset} ${config.waitTime || 10} seconds`);
+    console.log(`${colors.yellow}Wait Time:${colors.reset} ${config.waitTime || 1} seconds`);
     console.log(`${colors.yellow}APN:${colors.reset} ${config.apn || 'internet'}`);
     console.log(`\n${colors.cyan}To update, use --save-config flag with login command${colors.reset}`);
 }

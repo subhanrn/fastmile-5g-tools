@@ -115,8 +115,8 @@ You can also manually create/edit `config.json`:
 {
   "username": "admin",
   "password": "your_password",
-  "hostname": "192.168.8.1",
-  "waitTime": 30,
+  "hostname": "192.168.1.1",
+  "waitTime": 1,
   "apn": "internet"
 }
 ```
@@ -125,13 +125,13 @@ You can also manually create/edit `config.json`:
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--host <hostname>` | Gateway hostname/IP | 192.168.8.1 |
+| `--host <hostname>` | Gateway hostname/IP | 192.168.1.1 |
 | `--path <path>` | API endpoint path | /prelogin_status_web_app.cgi |
 | `-u, --username <user>` | Username for authentication | - |
 | `-p, --password <pass>` | Password for authentication | - |
 | `-s, --save-config` | Save credentials to config.json | false |
 | `--apn <name>` | Access Point Name | internet |
-| `--wait <seconds>` | Wait time during reconnect | 30 |
+| `--wait <seconds>` | Wait time during reconnect | 1 |
 | `-f, --format <type>` | Output format: table, json, compact | table |
 | `--filter <section>` | Filter output: wan, 5g, lte, all | all |
 | `-w, --watch` | Enable watch mode (continuous updates) | false |
@@ -192,12 +192,12 @@ node main.js status --format compact
 
 **Login and save credentials:**
 ```bash
-node main.js login -u admin -p yourpassword --save-config
+node main.js login --host 192.168.1.1 -u admin -p yourpassword --save-config
 ```
 
 **Login without saving:**
 ```bash
-node main.js login --host 192.168.8.1 -u admin -p yourpassword
+node main.js login --host 192.168.1.1 -u admin -p yourpassword
 ```
 
 **Force interface reconnection (with saved config):**
@@ -313,7 +313,7 @@ The reconnect command performs a full interface reset:
 
 1. Authenticates with the gateway
 2. Disables the internet interface
-3. Waits for specified duration (default 30 seconds)
+3. Waits for specified duration (default 1 seconds)
 4. Re-enables the internet interface
 5. Confirms successful reconnection
 
@@ -327,13 +327,13 @@ This is useful for:
 **Authentication failed:**
 ```bash
 # Verify credentials
-node main.js login -u admin -p password --host 192.168.8.1
+node main.js login -u admin -p password --host 192.168.1.1
 ```
 
 **Connection timeout:**
 ```bash
 # Check network connectivity and gateway address
-ping 192.168.8.1
+ping 192.168.1.1
 ```
 
 **Different gateway address:**

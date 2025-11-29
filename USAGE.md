@@ -40,7 +40,7 @@ node main.js login --host 192.168.1.1 -u admin -p yourpassword
 ### Force Reconnection
 
 ```bash
-# Standard reconnection (30 second wait)
+# Standard reconnection (1 second wait)
 node main.js reconnect -u admin -p yourpassword
 
 # Quick reconnection (15 second wait)
@@ -90,7 +90,7 @@ fi
    #!/bin/bash
    USER="admin"
    PASS="yourpassword"
-   HOST="192.168.8.1"
+   HOST="192.168.1.1"
    
    node main.js "$@" --host "$HOST" -u "$USER" -p "$PASS"
    ```

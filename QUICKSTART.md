@@ -27,8 +27,8 @@ Saved Configuration (config.json):
 
 Username: admin
 Password: ********
-Hostname: 192.168.8.1
-Wait Time: 30 seconds
+Hostname: 192.168.1.1
+Wait Time: 1 seconds
 ```
 
 ### Step 3: Use Without Credentials
@@ -89,8 +89,8 @@ You can also create `config.json` manually:
 {
   "username": "admin",
   "password": "your_password",
-  "hostname": "192.168.8.1",
-  "waitTime": 30
+  "hostname": "192.168.1.1",
+  "waitTime": 1
 }
 ```
 
